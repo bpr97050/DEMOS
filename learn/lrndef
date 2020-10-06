@@ -1,0 +1,24 @@
+#include <sgtty.h>
+#include <stdio.h>
+char    *direct = "/usr/lib/learn";     /* СТАНДАРТНАЯ ДИРЕКТОРИЯ СО  */
+int     more;                              /* ВСЕМ НЕОБХОДИМЫМ ДЛЯ РАБОТЫ */
+char   *level;                            /* learn; ЕСЛИ НЕОБХОДИМО, ИЗМЕНИТЕ */
+int     speed;                             /* ЕЕ ИМЯ В СВОЕЙ СИСТЕМЕ.          */
+char    *sname;
+char   *todo;
+FILE    *incopy = NULL;
+int     didok;
+int     sequence = 1;
+int     comfile = -1;
+int     status;
+int     wrong;
+char    *pwline;
+char    *dir;
+FILE    *scrin;
+int     logging = 1; /*установить в 0 для того,чтобы прекратить регистрацию оценок*/
+int     ask;
+int     flag;
+int     reTURN;
+struct sgttyb term;
+struct tchars ctl;
+char fdi;

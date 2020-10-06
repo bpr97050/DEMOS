@@ -1,0 +1,140 @@
+head     1.2;
+access   ;
+symbols  ;
+locks    ;
+comment  @ * @;
+
+
+1.2
+date     86.11.11.20.45.42;  author avg;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     86.11.11.17.51.10;  author avg;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Экранный редактор eda 2.4
+@
+
+
+1.2
+log
+@Убран rcsid
+@
+text
+@#ifndef lint
+/*static char rcsid[] = "$Header: e.vta2t1.h,v 1.1 86/11/11 17:51:10 avg Exp $";*/
+#endif
+
+/*
+ * $Log:	e.vta2t1.h,v $
+ * Revision 1.1  86/11/11  17:51:10  avg
+ * Initial revision
+ * 
+ */
+
+/*
+ * Экранный редактор eda  ver 2.4
+ *   Авторы: Антонов В.Г. ( ВМК МГУ, ИПК Минавтопрома )
+ *   Последняя модификация: 02.01.1986   Красненков С.М.
+ */
+
+/* Параметры для терминала ВТА-2000-15 */
+
+#define NLIN    24
+#define SWID    80
+#define ROLL   0
+#define UPPERONLY 0
+
+#define F_right "\033c"                   /* ПЕРЕМЕЩЕНИЕ КУРСОРА */
+#define F_left  "\033d"
+#define F_up    "\033a"
+#define F_down  "\033b"
+#define F_il    "\033l"                   /* INS./DEL. LINE/CHAR  */
+#define F_dl    "\033m"
+#define F_ic    "\033@@"
+#define F_dc    "\033p"
+#define F_del   "\177"
+#define F_tab   "\011"
+#define F_btab  "\010"                    /* ОБРАТНАЯ ТАБУЛЯЦИЯ */
+#define F_wtab  "\033k"                   /* ТАБ.ВПЕРЕД ПО СЛОВАМ */
+#define F_bwtab "\033j"                   /* ТАБ.НАЗАД ПО СЛОВАМ */
+#define F_exit  "\032\032"                /* НОРМ.ВЫХОД             */
+#define F_rew   "\001"                    /* ПЕРЕРИСОВКА ЭКРАНА     */
+#define F_na    "\033\140"                /* ЧИСЛО ПОВТОРЕНИЙ       */
+#define F_lnum  "\033e\033\140"
+#define F_cnum  "\033e\0331"
+#define F_ret   "\033g"                   /* В НАЧАЛО СТРОКИ        */
+#define F_cr    "\015"                    /* ВСТАВКА ПУСТОЙ СТРОКИ  */
+#define F_aex   "\004\004\004\004"        /* АВАРИЙНЫЙ ВЫХОД        */
+#define F_inter "\003"                    /* ПРЕРЫВАНИЕ ОПЕРАЦИИ    */
+#define F_fsd   "\033>"                   /* НАЧАЛО ПОИСКА          */
+#define F_find  "\033?"                   /* ВЫПОЛНИТЬ ПОИСК        */
+#define F_savel "\005"                    /* ДОБАВЛ.В БУФЕР СОХРАН. */
+#define F_incll "\007"                    /* ВЫВОД ИЗ БУФЕРА СОХР.  */
+#define F_wrtex "\033e\005"               /* ЗАПОМ. СТРОКИ В ФАЙЛЕ  */
+#define F_rdtex "\033e\007"               /* ВСПОМ. СТРОКИ ИЗ ФАЙЛА */
+#define F_clrtx "\033e\027"               /* ОЧИСТИТЬ БУФ.СОХРАНЕН. */
+#define F_end   "\033e\033c"              /* В КОНЕЦ СТРОКИ         */
+#define F_beg   "\033e\033d"              /* В НАЧАЛО СТРОКИ        */
+#define F_pgup  "\033e\033a"              /* В НАЧАЛО СТРАНИЦЫ      */
+#define F_pgdown "\033e\033b"             /* В КОНЕЦ СТРАНИЦЫ       */
+#define F_shell "\033s"                   /* ВЫЗОВ SHELL            */
+#define F_sins  "\033e\033@@"              /* РЕЖИМ ВСТАВКИ          */
+#define F_sdel  "\033e\033p"              /* РЕЖИМ ЗАМЕНЫ           */
+#define F_tof   "\033h"                   /* В НАЧАЛО СТРАН./ФАЙЛА  */
+#define F_eof   "\033f"                   /* В КОНЕЦ СТРАН./ФАЙЛА   */
+#define F_cat   "\033q"                   /* СКЛЕЙКА/РАЗРЕЗАНИЕ     */
+#define F_rpt   "\033e\033e"              /* ПОВТОРЕНИЕ ПРЕДЫД.КОМ. */
+#define F_store "\033w"                   /* ЗАПОМ.ИЗМЕНЕН. В ФАЙЛЕ */
+#define F_pmode "\033<"
+#define F_tmode "\033="
+#define F_flush "\027"
+#define F_parup "\033e\033m"
+#define F_pardown "\033e\033l"
+#define F_mdef1 "\012\017"                /* МАКРООПРЕДЕЛЕНИЕ 1     */
+#define F_mdef2 "\012\020"                /*                  2     */
+#define F_mdef3 "\012\022"                /*                  3     */
+#define FS_mdend "\012"                   /* КОНЕЦ ВВОДА МАКРО      */
+#define Mname1  'o'
+#define Mname2  'p'
+#define Mname3  'r'
+
+/* КОДЫ ОТОБРАЖЕНИЯ НА ЭКРАН */
+
+#define S_right "\033C"              /* ПЕРЕМЕЩЕНИЕ КУРСОРА */
+#define S_left  "\033D"
+#define S_up    "\033A"
+#define S_down  "\033B"
+#define S_ic    "\033@@"
+#define S_dc    "\033P"
+#define S_ret   "\015"               /* В НАЧАЛО СТРОКИ        */
+#define S_cr    "\015\012"
+#define S_home  "\033H"
+#define S_clrl  "\033K"              /* СТИРАНИЕ СТРОКИ        */
+#define S_clrel "\033K"              /* СТИРАНИЕ КОНЦА СТРОКИ  */
+#define S_erase "\033E"
+#define S_il    "\033L"
+#define S_dl    "\033M"
+#define S_pos   "\033Y  "            /* АДРЕСАЦИЯ УКАЗАТЕЛЯ    */
+#define POSX    2                    /* КООРДИНАТА СТРОКИ      */
+#define POSY    3                    /* МЕСТО УКАЗАТ. В СТРОКЕ */
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+static char rcsid[] = "$Header$";
+d6 4
+a9 1
+ * $Log$
+@

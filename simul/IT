@@ -1,0 +1,21 @@
+** = = = = = = = = = = = = = = = ** 22.08.86 VERSION 5
+**   ABTOMATИЧECKOE ПPEPЫBAHИE   **
+** = = = = = = = = = = = = = = = **
+LOCALS -LINT
+  DATA P,L
+  DATA TYP:IT ,AD:IT
+  BYTES W:FLAG[1]                       %ПPOTИB ЗAЦИKЛИBAHИЯ
+
+PROGRAM IT(,,AD:IT)
+  (IF W:FLAG:<>
+    DPC <<HO.CD.CD."IT MICROCODE ERROR".0>>
+    CSV DEBUG
+  IF)
+  W:FLAG:=1                             %ИДET "IT"
+  CALL TOSTAC ,,#PSW                    %IF HE HAДO, OHИ CAMИ BЫЗOBУT
+  CALL TOSTAC ,,#PC
+  #PC=((CALL READ AD:IT,0))
+  #PSW=((CALL READ AD:IT+2,0))
+  W:FLAG:=0                             %MOЖHO IT
+  P=#IT:RET
+  RETURN ,

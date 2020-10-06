@@ -1,0 +1,118 @@
+% === RAW:TEST === %  12.10.88 VERSION 24
+GLOBAL (LOCATION=&400) (START=MAIN)
+  DATA GDIFF,AZC
+  EQUALS BRCKSY=&04,SPECSY=&07
+
+LOCALS LMAIN
+  EQUALS X:OFF="S"-&40  ,X:ON="Q"-&40
+  BYTES INPSY[1]
+
+  EQUALS DUMDLY=100        %ВРЕМЯ РЕАКЦИИ МАШИНЫ НА X-OFF
+  EQUALS STPDLY=60         %МАКСИМАЛЬНЫЙ РАЗРЫВ МЕЖДУ СИМВОЛАМИ ВЫДАЧИ
+
+  DATA DUMCTR,STPCTR
+  DATA ISOUT
+  DATA XOFMRK              %ФЛАГ 'ВЫВОД ПРИОСТАНОВЛЕН'
+
+%% МАТРИЦА МЕЖЗАДАЧНЫХ СИГНАЛОВ
+  BYTES 0     ,IOF[1],IGF[1],IPF[1]
+  BYTES OIF[1],0     ,OGF[1],OPF[1]
+  BYTES GIF[1],GOF[1],0     ,GPF[1]
+  BYTES PIF[1],POF[1],PGF[1],0
+
+%%
+%%  ГЛАВНЫЙ ПЛАНИРОВЩИК
+%%
+PROGRAM MAIN()
+. BPT
+  CALL GPINIT          %% ИНИЦИИРУЕМ КАРТУ СОПРЯЖЕНИЯ
+  CALL INIBUF          %% ИНИЦИИРУЕМ БУФЕРА
+%  ....                %% ИНИЦИИРУЕМ ЗАДАЧИ
+  (WHILE
+    GOSUB CCKGET
+    GOSUB CCKPUT
+    GOSUB CCKINP
+    GOSUB CCKOUT
+%.. SYSCALL DELAY ......
+  )WHILE
+
+
+%%
+%%  ЗАДАЧА ВВОДА С ЛИНИИ
+%%
+LABEL CCKGET
+  (IF R0(CALL GTEST)<>0          %ПРИШЕЛ СИМВОЛ ?
+    STPCTR='STPDLY'              %СТАВИМ МЕЖСИМВОЛЬНЫЙ TIME-OUT
+    CALL PUTBUF R0(CALL GET)     %КЛАДЕМ В БУФЕР
+    (IF R0(CALL TSTFUL)<>0       %ПЕРПОЛНЕНИЕ БЛИЗКО ?
+      GPF:=1                     %ПРОБУЖДАЕМ ВЫДАЧУ X-OFF'A
+      XOFMRK=1                   %ФЛАГ 'ВЫВОД УСПОКОЕН'
+      DUMCTR='DUMDLY'            %ВЗВОДИМ ЗАДЕРЖКУ ВЫДАЧИ НА ЭКРАН
+      STPCTR=0                   % ЧТОБЫ НЕ ВЫСЛАТЬ 2 X-OFF'А
+    )IF
+  )IF
+
+  (IF STPCTR<>0 AND STPCTR(-1)=  %КОНЕЦ ПЕРЕДАЧИ ИЗ МАШИНЫ ?
+    (IF XOFMRK=0                 %НЕ БЫЛО X-OFF'А ?
+      GOF:=1                     %ЗАПУСК DPC БЕЗ ПЕРЕДАЧИ ДРУГОГО X-OFF
+    )IF
+  )IF
+
+  (IF DUMCTR<>0 AND DUMCTR(-1)=  %ЖДЕМ УСПОКОЕНИЯ ВЫДАЧИ ИЗ МАШИНЫ
+    GOF:=1                       %ЗАПУСКАЕМ ВЫДАЧУ НА ДИСПЛЕЙ
+  )IF
+
+  RETURN ,
+
+%%
+%%  ЗАДАЧА ВЫВОДА В ЛИНИЮ
+%%
+LABEL CCKPUT
+%%                 ПРИОРИТЕТЫ ЗАПРОСОВ УБЫВАЮТ ПО ТЕКСТУ
+  (IF GPF:<>0                    %ЗАПРОС X-OFF ?
+    GPF:=0
+    INPSY:='X:OFF+&80' ; ISOUT=1
+  ELSE IF OPF:<>0                %ЗАПРОС X-ON ?
+    OPF:=0
+    INPSY:='X:ON+&80' ; ISOUT=1
+  ELSE IF IPF:<>0                %НАЖАТ СИМВОЛ ?
+    IPF:=0
+    ISOUT=1
+  )IF
+
+  (IF ISOUT<>0                   %НАДО ВЫДАВАТЬ ?
+    (IF R0(CALL PTEST)<>0        %УСТРОЙСТВО ГОТОВО ?
+      CALL PUT R0:(INPSY)
+      ISOUT=0
+    )IF
+  )IF
+
+  RETURN ,
+
+%%
+%%  ЗАДАЧА ВВОДА С ДИСПЛЕЯ
+%%
+LABEL CCKINP
+  (IF R0(SYSCALL DPM)>=0
+    IF R0:='SPECSY' THEN SYSCALL EXIT &FFFF   %BRCKSY НУЖЕН В СИСТЕМЕ
+
+    IF R0:='"K"-&40' THEN R0='X:ON+&80'
+
+    INPSY:=R0                    %СПАСАЕМ В ПЕРЕДАВАЕМЫЕ ДАННЫЕ
+    IPF:=1                       %ПОСЫЛАЕМ СИГНАЛ НА ВЫВОД В ЛИНИЮ
+  )IF
+  RETURN ,
+
+%%
+%%  ЗАДАЧА ВЫВОДА НА ДИСПЛЕЙ
+%%
+LABEL CCKOUT
+  (IF GOF:<>0                    %ЕСТЬ РАБОТА ДЛЯ ВЫВОДА?
+    GOF:=0
+    CALL FLUSH                   %ВЫТАЛКИВАЕМ БУФЕР (ЭТО НАДОЛГО)
+    (IF XOFMRK<>0                %БЫЛ ОСТАНОВЛЕН ВЫВОД ?
+      XOFMRK=0
+      OPF:=1                     %ЗАПУСКАЕМ ВЫВОД (X-ON)
+    )IF
+  )IF
+  RETURN ,

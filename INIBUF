@@ -1,0 +1,57 @@
+% === INIBUF === %  10.10.88 VERSION 7
+%---------------------------%
+%-  CIRCLE BUFFER MANAGER  -%
+%---------------------------%
+LOCALS LBUFF
+  DATA GETPTR,PUTPTR
+
+  EQUALS BUFSIZ=300
+  EQUALS HDWBUF=42               %РАЗМЕР БУФЕРА В КАРТЕ LP55.02 = 20(?)
+  EQUALS REDMRK=BUFSIZ-HDWBUF    %ГРАНИЦА "КРАСНОЙ ЗОНЫ".
+
+  BUFFERS BUFFER(BUFSIZ+1)
+% EQUALS EOBUFF=!BUFFER+BUFSIZ
+****************P
+
+  REGISTERS DIST=%1,DISTX=%2
+
+PROGRAM INIBUF()
+  GETPTR='!BUFFER' ; PUTPTR='!BUFFER'
+  RETURN
+
+PROGRAM GETBUF()
+  (IF GETPTR<>PUTPTR
+    R0:=@GETPTR
+    IF GETPTR(+1)='!BUFFER+BUFSIZ' THEN GETPTR='!BUFFER'
+  ELSE
+    R0:=0
+  )IF
+  RETURN
+
+PROGRAM PUTBUF()
+  @PUTPTR:=R0
+  IF PUTPTR(+1)='!BUFFER+BUFSIZ' THEN PUTPTR='!BUFFER'
+  RETURN
+
+PROGRAM TSTFUL(DIST,DISTX)
+  DISTX=PUTPTR-GETPTR
+  IF DIST(DISTX)<0 THEN DIST='BUFSIZ'-DISTX       %ПЕРЕВОРАЧИВАЕМ
+  IF DIST>='REDMRK' THEN R0=1 ELSE R0=0           %УСТАНАВЛИВАЕМ ФЛАГ
+  RETURN
+
+PROGRAM TSTEMP()
+  R0=0 ; IF GETPTR=PUTPTR THEN R0=1
+  RETURN
+
+PROGRAM FLUSH()
+  @PUTPTR:=0                %ТЕРМИНАТОР
+  (IF PUTPTR<<GETPTR        %2 КУСКА В БУФЕРЕ ?
+    SYSCALL DPC '!BUFFER'   %ВЫДАЕМ <***TO......
+.   CLRB !BUFFER+BUFSIZ     *ТЕРМИНАТОР 2-ГО КУСКА
+  )IF
+  SYSCALL DPC GETPTR        %ВЫДАЕМ FROM****...>
+
+* GETPTR=PUTPTR              КОЛЬЦЕВОЙ БУФЕР РЕЖЕТ ЦЕПОЧКИ DPC
+  GETPTR='!BUFFER' ; PUTPTR='!BUFFER'   %ЛИНЕЙНЫЙ БУФЕР
+
+  RETURN

@@ -1,0 +1,56 @@
+%PDP:11    % 19.01.88 VERSION 69
+GLOBAL EMULTR
+  USE SYS:PARAMS
+  USE ACR:STRUCT,FIL:STRUCT,LIB:PARAMS
+  EQUALS CARRY=&01 ,OVER=&02 ,ZERO=&04 ,NEG=&08 ,TRACE=&10
+*             - BEKTOPA ПPEPЫBAHИЙ -
+  EQUALS CHANER=&4 ,RESCOM=&8 ,BPT=&C
+  EQUALS IOT=&10   ,POWER=&14 ,EMT=&18   ,TRAP=&1C
+  EQUALS COINP=&30 ,COOUT=&34 ,PTINP=&38 ,PTOUT=&3C
+  EQUALS TIMER=&40
+  EQUALS FLOAT=&A4
+  DATA IT:RET=ITRST-2                   %BOЗBPAT ЧEPEЗ RTS
+
+  DATA REG=R0                           %OБЩИE PEГИCTPЫ
+  DATA R0=0,R1=0,R2=0,R3,R4,R5,SP,PC
+  DATA CPREGS=CPUERR                    %PEГИCTPЫ CPU
+  DATA CPUERR,UBREAK,PIRQ,SREG,PSW
+  DATA CMD                              %PEГИCTP KOMAHДЫ
+  DATA INPSYM                           %PEЗУЛЬTAT DPM
+  DATA STRSYM
+
+  DATA TICKFL
+  DATA ITWORD                           %ГPEБEHKA OTЛOЖEHHЫX ПPEPЫBAHИЙ
+  EQUALS T:BIT=1                         %"ЗAДEPЖAHHЫЙ" T-БИT
+  EQUALS SL:BIT=2                        %"ЖEЛTAЯ" ЗOHA CTEKA
+  EQUALS D:BIT=4                         %УСТРОЙСТВА
+
+  DATA W4 ,W6 ,W8 ,W10 ,W12 ,W14
+  DATA WBUF(&100)
+
+  DATA DISLAB
+  DATA VSCR,HSCR  ,VPOS,HPOS
+  DATA TIPCOM                           %БAЙTOBAЯ ИЛИ HET
+  BYTES TRACFL=0 ,DEBFL=0
+
+LOCALS *LMAIN
+
+PROGRAM EMULTR()
+  CALL START ^A                         %INI ФAЙЛA C MACCИBOM
+%START МЕНЯЕТ STRSYM, ЕСЛИ ВЫЗВАНО КАК ИНТЕРПРЕТАТОР
+  CALL DEVINI ((IF ^A='RN' THEN =1 ELSE =0))  %RESET
+  (#VSCR+1)[(#HSCR+1):=((DPTYPE))
+  CALL INIDPP
+  CALL DEBINI                           %HACTPOЙKA HA ЭKPAH
+
+%%CALL PROFIL 0
+  (WHILE
+   <<ITRST>> =
+    #INPSYM=((DPM))
+    (IF .AND.&7F=2            %%   'DBSYMB'
+      #INPSYM=#MIN1 ; #DEBFL:=#DEBFL:.IOR.&80
+    IF)
+    IF #DEBFL:<> THEN CALL DEBUG
+    CALL STEP                           %BЫБOPKA И BЫПOЛHEИE KOMAHДЫ
+    CALL DEVTST                         %OПPOC УCTOPЙCTB
+  WHILE)

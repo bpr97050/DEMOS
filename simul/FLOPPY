@@ -1,0 +1,238 @@
+%- - - - - - - - - - - - - - - - -% 27.09.88 VERSION 56
+%-   ЭМУЛЯТОР ГИБКОГО ДИСКА DX   -%
+%- - - - - - - - - - - - - - - - -%
+LOCALS :DX
+  DATA ATICK,AITREQ
+%%DATA INITFL=0
+  DATA BUFFER(&80)                      %"ФИЗИЧЕСКИЙ" БУФЕР
+  DATA CIO=0,IOBUFF(&100),IOLENG=&100,IOSECT=0
+  DATA A:PHIS                           %УКАЗАТЕЛЬ В ВИРТ. БУФЕРЕ
+
+  EQUALS ERROR=&8000,INIBIT=&4000
+  EQUALS READY=&80,ITEN=&40,DONE=&20,UNIT=&10,FUNC=&0E,GO=&01
+  DATA DXERR=ERROR,INIT=INIBIT          %МАСКИ БИТИКОВ CSR
+
+  EQUALS DRVRDY=&80
+  EQUALS ESECTO=&20,ETRACK=&28          %КОДЫ ОШИБОК
+
+  EQUALS QTRACK=&4D,QSECT=&1A
+
+  EQUALS ITADDR=&B4,ITPRI=4             %АДРЕС ВЕКТОРА, ПРИОРИТЕТ
+  DATA A:CSR=&FE78 ,A:DBR=&FE7A         %АДРЕСА НА ШИНЕ
+  DATA CSR  ,DBR                        %ВНЕШНИЕ РЕГИСТРЫ УСТРОЙСТВА
+  DATA ASECT ,ATRACK ,STATUS ,ECODES    %НЕВИДИМЫЕ РЕГИСТРЫ
+  DATA DATIND                           %ПАРАМЕТР ПЕРЕДАЧИ БУФЕРА
+
+  DATA WAIDAT,WAIGET                    %ФЛАГИ ОЖИДАНИЯ ОБМЕНА
+
+  DATA MARK ,BUSDAT
+%                                       %ЗАДАЧИ ОТДЕЛЬНЫХ ФУНКЦИЙ
+  DATA TASKS=WRBUFF.RDBUFF.WRSECT.RDSECT.NILTSK.RDSTAT.WRBAD.RDERR
+  DATA WMASK=INIBIT+ITEN+UNIT+FUNC+GO   %МАСКA ЗАПИСИ CSR
+  DATA RMASK=ERROR+READY+DONE           %МАСКA ЧТЕНИЯ CSR
+
+  DATA ASTART=START                     %ТОЧКА НАЧАЛА АСИНХР. РАБОТЫ
+  DATA ASTOP=STOP
+  DATA NFUNC
+  BYTES BYT[1]
+
+%-- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ И ИСПОЛНЕНИИ RESET'A --
+PROGRAM FLOPPY(AITREQ,ATICK)
+  CIO:=#DISLAB
+  GOSUB RESET
+  RETURN ,
+
+%-- ЧТЕНИЕ ИЗ РЕГИСТРОВ --
+PROGRAM DX::RD(,MARK)
+  (IF =A:CSR
+    =CSR.AND.RMASK
+  ELSE IF =A:DBR
+    (IF WAIGET<>
+      CSR='READY'.CCA..AND.CSR ; WAIGET=0
+    IF)
+    =(DBR+1):
+  ELSE
+    RETURN ,,2
+  IF)
+  (IF ,MARK<>
+    BYT:= ; =BYT[
+  IF)
+  RETURN ,,0
+
+%-- ЗАПИСЬ В РЕГИСТРЫ --
+PROGRAM DX::WR(,MARK,BUSDAT)
+  (IF =A:CSR                            %РЕГИСТР КОМАНД ?
+    IF WMASK,,MARK<> THEN =.AND.&FF
+    CSR=.CCA..AND.CSR                   %СНИМАЕМ W-БИТЫ
+    IF BUSDAT.AND.WMASK,,MARK<> THEN =.AND.&FF
+    CSR=.IOR.CSR                        %ЗАПИСЫВАЕМ W-БИТЫ
+    (IF CSR.AND.'GO'<>                  %ЗАПУСКАЕМ ОПЕРАЦИЮ ?
+      GOSUB FORK CSR.AND.'FUNC'         %СОЗДАЕМ ЗАДАЧУ
+    ELSE IF CSR:.AND.'INIBIT/&100'<>    %ИНИЦИАЛИЗАЦИЯ ?
+      GOSUB RESET
+    ELSE IF CSR.AND.'ITEN'<>
+      IF CSR.AND.'DONE'<> THEN GOSUB PUTIT     %ПРОБУЕМ ВЫЗВАТЬ IT
+    IF)
+  ELSE IF =A:DBR                        %РЕГИСТР ДАННЫХ ?
+    DBR=BUSDAT.AND.&FF
+    (IF WAIDAT<>                        %ЖДЕМ ДАННЫХ ?
+      CSR='READY'.CCA..AND.CSR ; WAIDAT=0
+    IF)
+  ELSE
+    RETURN ,,2                          %НАВЕРНОE ДРУГОЕ УСТРОЙСТВО...
+  IF)
+  RETURN ,,0
+
+%-- РАЗДВОЕНИЕ ПОТОКА УПРАВЛЕНИЯ --
+SUBROUTINE FORK(NFUNC)
+  (IF CSR.AND.'DONE'=                   %НЕ ГОТОВ ?
+    CSR=CSR.IOR.DXERR
+    STATUS=0
+    RETURN:FORK
+  IF)
+  (TICWAI+2)=ASTART                     %СТАВИМ ТОЧКУ ОЖИДАНИЯ TICK
+  @ATICK=1 ; #TICKFL=1                  %ЗАКАЗЫВАЕМ НЕМЕДЛЕННОЕ ПРОБУЖД.
+  @AITREQ=0                             %СНИМАЕМ ITREQ ДО КОНЦА ОПЕР.
+  RETURN:FORK                           %ПОЗВОЛЯЕМ CPU ПРОДОЛЖАТЬ
+START =
+  CSR=DXERR+'DONE+READY'.CCA..AND.CSR
+  .BRX.@TASKS=,,NFUNC                   %ВЫЗЫВАЕМ СООТВЕТСТВУЮЩУЮ ЗАДАЧУ
+
+%%  IF BUSDAT.AND.8<> THEN RETURN:CMDACC ,,2   %С 1-М ДИСКОМ НЕ РАБОТАЕМ
+
+%-- ЗАПИСЬ БУФЕРА ИЗ МАШИНЫ --
+WRBUFF =
+  (XCYCLE(DATIND)+ &80
+    CSR=CSR.IOR.'READY' ; WAIDAT=1
+    GOSUB TICWAI 12                     %ЖДЕМ ЗАПИСИ
+    BUFFER(DATIND):=DBR                 %ПОЛУЧАЕМ ЕЕ РЕЗУЛЬТАТ
+    GOSUB TICWAI 8                      %ДЕЛАЕМ ВИД, ЧТО ЧТО-ТО ДЕЛАЕМ
+  XCYCLE)
+  CSR='READY'.CCA..AND.CSR.IOR.'DONE'
+  GOTO SVRET                            %КОНЕЦ ЗАДАЧИ
+
+%-- ЧТЕНИЕ БУФЕРА В ПАМЯТЬ --
+RDBUFF =
+  (XCYCLE(DATIND)+ &80
+    GOSUB TICWAI 8                      %ДЕЛАЕМ ВИД, ЧТО БЕРЕМ ИЗ БУФЕРА
+    DBR=BUFFER(DATIND):
+    CSR=CSR.IOR.'READY' ; WAIGET=1      % CPU, ПОЛУЧАЙ БАЙТ !
+    GOSUB TICWAI 10                     % Я ТЕБЯ ЖДУ...
+  XCYCLE)
+  CSR='READY'.CCA..AND.CSR.IOR.'DONE'
+  GOTO SVRET                            %КОНЕЦ ЗАДАЧИ
+
+%-- ЗАПИСЬ СЕКТОРА НА ДИСК --
+WRSECT =
+  GOSUB CHKST                           %ПОЛУЧАЕМ СЕКТОР И ДОРОЖКУ
+  GOSUB CHKON                           %ON LINE ?
+  CSR='READY'.CCA..AND.CSR
+%                             - ВЫПОЛНЯЕМ ЗАПИСЬ -
+  (CIO+1):=1
+  =ATRACK*'QSECT'+ASECT                 %ФИЗИЧЕСКИЙ НОМЕР
+  IOSECT=>1                             % -> ЛОГИЧЕСКИЙ
+  A:PHIS=((IF = THEN =&80 ELSE =0))+IOBUFF    %CARRY - ЭТО МЛАДШИЙ БИТ
+  !@A:PHIS=BUFFER,&80
+  CALL :IO CIO\
+  GOSUB TICWAI 50                       %ДЛЯ ЛИШНЕЙ АСИНХРОННОСТИ
+
+  CSR='READY+DONE'.IOR.CSR
+  IF ^A.AND.'ITEN'<> THEN GOSUB PUTIT   %ВЫЗЫВАЕМ ПРЕРЫВАНИЕ
+  GOTO SVRET                            %КОНЕЦ
+
+%-- ЧТЕНИЕ СЕКТОРА С ДИСКА --
+RDSECT =
+  GOSUB CHKST
+  GOSUB CHKON
+  CSR='READY'.CCA..AND.CSR
+%                             - ВЫПОЛНЯЕМ ЧТЕНИЕ -
+  (CIO+1):=0
+  =ATRACK*'QSECT'+ASECT                 %ФИЗИЧЕСКИЙ НОМЕР
+  IOSECT=>1                             % -> ЛОГИЧЕСКИЙ
+  A:PHIS=((IF = THEN =&80 ELSE =0))+IOBUFF    %CARRY - ЭТО МЛАДШИЙ БИТ
+  CALL :IO CIO\
+  !@BUFFER=A:PHIS,&80
+  GOSUB TICWAI 60                       %ДЛЯ ЛИШНЕЙ АСИНХРОННОСТИ
+
+  CSR='READY+DONE'.IOR.CSR
+  IF ^A.AND.'ITEN'<> THEN GOSUB PUTIT   %ВЫЗЫВАЕМ ПРЕРЫВАНИЕ
+  GOTO SVRET                            %КОНЕЦ
+
+SUBROUTINE CHKST                        %ПРИНИМАЕМ СЕКТОР И ДОРОЖКУ
+  GOSUB TICWAI 8
+  CSR='READY'.IOR.CSR ; WAIDAT=1
+  GOSUB TICWAI 10                       %ЖДЕМ СЕКТОРА
+  (IF DBR<1 OR >'QSECT'
+    STATUS='ESECTO' ; CSR=DXERR.IOR.CSR ; GOTO SVRET
+      IF)
+  ASECT=-1
+  CSR='READY'.IOR.CSR ; WAIDAT=1        %READY СНЯЛОСЬ ПРИ ЗАПИСИ В DBR
+  GOSUB TICWAI 10                       %ЖДЕМ ДОРОЖКИ
+  (IF DBR<0 OR >'QTRACK-1'
+    STATUS='ETRACK' ; CSR=DXERR.IOR.CSR ; GOTO SVRET
+      IF)
+  ATRACK=
+  RETURN:CHKST
+
+SUBROUTINE CHKON
+  (IF CIO:=                             %ДИСК ВЫКЛЮЧЕН ?
+    STATUS=0 ; ECODES=1 ; CSR=DXERR+'READY'.IOR.CSR   %DONE ОТСУТ-ЕТ
+    GOTO SVRET
+      IF)
+  RETURN:CHKON
+
+SUBROUTINE PUTIT
+  #ITWORD=#ITWORD.IOR.'D:BIT' ; @AITREQ='ITPRI'
+  RETURN:PUTIT
+
+%-- ЧТЕНИЕ СТАТУСА --
+RDSTAT =
+  STATUS=((IF CIO:<> THEN ='DRVRDY' ELSE =0))
+  DBR=
+  CSR='READY+DONE'.IOR.CSR
+  GOTO SVRET
+
+%-- ЧТЕНИЕ КОДА ОШИБКИ --
+RDERR =
+  DBR=ECODES
+  CSR='READY+DONE'.IOR.CSR
+  GOTO SVRET
+
+NILTSK =                                %(НА "МЕРЕ-60" ЭТОЙ ФУНК. НЕТ)
+WRBAD =                                 %ПОМЕТКА "ПЛОХОЙ" ЗАПИСИ
+  CSR=CSR.IOR.DXERR ; ECODES=1          %РУГАЕМСЯ НА ЭТИ ПОПЫТКИ
+  GOTO SVRET
+
+%-- ОЖИДАНИЕ ЗАДЕРЖКИ --
+SUBROUTINE TICWAI(@ATICK)
+  #TICKFL=1
+  RETURN ,          % VIRTUAL 'FALL THROUGH'
+PROGRAM DX:TIC()                        %ПРИШЛО WAKEUP
+% @ATICK=0                              %УЖЕ ДОЛЖНО БЫТЬ, РАЗ ПРИШЛО
+  RETURN:TICWAI                         %ПРОДОЛЖАЕМ ЗАДАЧУ
+
+%-- КОНЕЦ ЗАДАЧИ --
+ <<SVRET>> =
+  (TICWAI+2)=ASTOP                      %ДАЛЕЕ ВСЕ WAKEUP БУДУТ ПУСТЫЕ
+STOP RETURN ,
+
+PROGRAM DX:INF()
+%%CSV DEBUG
+  @AITREQ=0
+  RETURN 'ITADDR'
+
+%-- СБРОС ПО ИНСТР. RESET И БИТУ &4000 ---
+SUBROUTINE RESET
+  (IF CIO:=
+    CSR='READY'                         %СНИМАЕМ 'DONE'
+  ELSE
+    (CIO+1):=0                          %ЧИТАЕМ
+    IOSECT=&0D                          %0-Й БЛОК 1-Й ДОРОЖКИ
+    CALL :IO CIO\
+    !@BUFFER=IOBUFF,&80
+%%  GOSUB CHKIT                         %ПОПЫТКА ВЫЗВАТЬ ПРЕРЫВАНИЕ
+    CSR='READY+DONE'
+  IF)
+  (TICWAI+2)=ASTOP                      %ОБРУБАЕМ ТЕКУЩУЮ ЗАДАЧУ
+  @AITREQ=0
+  RETURN:RESET
